@@ -1,0 +1,29 @@
+env: local
+
+http:
+  port: 8080
+  read_timeout: 10s
+  write_timeout: 10s
+  shutdown_timeout: 5s
+
+grpc:
+  timeout: 5s
+
+auth:
+  service_address: "auth_service:50051"
+  timeout: 5s
+
+kafka:
+  brokers:
+    - "kafka:9092"
+  text_topic: "content.text"
+  image_topic: "content.images"
+  all_content_topic: "content.all"
+  dead_letter_topic: "content.dead_letter"
+  group_id: "text_analyzer_group"
+  max_retries: 3
+  write_timeout: 10s
+  required_acks: 1
+
+storage:
+  service_address: "storage_service:50052"

@@ -1,0 +1,82 @@
+services:
+  api_gateway:
+    build:
+      context: ./api_gateway
+      dockerfile: Dockerfile
+    container_name: api_gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth_service:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - network
+    volumes:
+      - ./api_gateway/config:/app/config:ro
+    environment:
+      CONFIG_PATH: /app/config/config-local.yaml
+
+  auth_service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    container_name: auth_service
+    ports:
+      - "50051:50051"
+    environment:
+      DB_URL: postgres://admin:password@auth_db:5432/users?sslmode=disable
+      SECRET_KEY: your_very_secure_secret_key_here
+      CONFIG_PATH: /app/config/config-local.yaml
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      auth_db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./auth_service/config:/app/config
+    networks:
+      - network
+
+  auth_db:
+    image: postgres:15-alpine
+    container_name: auth_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: users
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - network
+
+  migrator:
+    build:
+      context: auth_service
+      dockerfile: cmd/migrator/Dockerfile
+    environment:
+      DB_URL: "postgres://admin:password@auth_db:5432/users?sslmode=disable"
+      SECRET_KEY: your_very_secure_secret_key_here
+      CONFIG_PATH: /app/config/config-local.yaml
+    depends_on:
+      auth_db:
+        condition: service_healthy
+    volumes:
+      - ./auth_service/migrations:/app/migrations
+    networks:
+      - network
+
+volumes:
+  postgres_data:
+
+networks:
+  network:
+    driver: bridge

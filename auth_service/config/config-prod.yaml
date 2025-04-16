@@ -1,0 +1,9 @@
+env: prod
+grpc:
+  port: 50051
+  timeout: 5s
+database:
+  dsn: postgres://${DB_USER}:${DB_PASSWORD}@postgres-prod:5432/auth_db?sslmode=require
+token:
+  token_ttl: 15m
+  refresh_token_ttl: 168h
