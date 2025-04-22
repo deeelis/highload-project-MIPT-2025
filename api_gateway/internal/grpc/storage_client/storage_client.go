@@ -76,9 +76,9 @@ func (c *StorageClient) RegisterContent(ctx context.Context, contentID string, c
 
 	var ct storagepb.ContentType
 	switch contentType {
-	case "TEXT":
+	case "text":
 		ct = storagepb.ContentType_TEXT
-	case "IMAGE":
+	case "image":
 		ct = storagepb.ContentType_IMAGE
 	default:
 		return fmt.Errorf("invalid content type: %s", contentType)

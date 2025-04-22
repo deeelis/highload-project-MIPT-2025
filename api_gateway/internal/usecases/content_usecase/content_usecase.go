@@ -56,6 +56,7 @@ func (uc *UseCase) ProcessContent(userID string, contentType models.ContentType,
 	}
 
 	if err := uc.storage.RegisterContent(ctx, content.ID, string(content.Type)); err != nil {
+		log.Error("failed to register content", logger.Err(err))
 		return nil, errors.ErrInternalServer
 	}
 

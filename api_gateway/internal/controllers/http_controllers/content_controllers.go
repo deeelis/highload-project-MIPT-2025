@@ -48,6 +48,7 @@ func (c *ContentController) UploadText(ctx *gin.Context) {
 	if err != nil {
 		c.log.Error("failed to process text", logger.Err(err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		c.log.Error("failed to process text", logger.Err(err))
 		return
 	}
 
