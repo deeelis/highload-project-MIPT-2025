@@ -27,3 +27,4 @@ kafka:
 
 storage:
   service_address: "storage_service:50052"
+  timeout: 5s

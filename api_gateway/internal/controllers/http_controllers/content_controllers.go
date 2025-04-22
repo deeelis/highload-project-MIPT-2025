@@ -81,9 +81,9 @@ func (c *ContentController) UploadImage(ctx *gin.Context) {
 		return
 	}
 
-	if len(imageBytes) > 10<<20 {
+	if len(imageBytes) > 1<<20 {
 		c.log.Warn("image file too large")
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "image file too large, max 10MB"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "image file too large, max 1MB"})
 		return
 	}
 
