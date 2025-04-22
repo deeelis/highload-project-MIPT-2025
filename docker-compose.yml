@@ -16,7 +16,17 @@ services:
     hostname: kafka
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      
+      # Настройки слушателей
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9093,EXTERNAL://localhost:9092,PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      
+      KAFKA_MESSAGE_MAX_BYTES: 2000000
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 2000000
+      KAFKA_MAX_REQUEST_SIZE: 2000000
+      
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 10000
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -92,6 +102,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - network
+
+      
+  nsfw:
+    build:
+      context: nsfw_service
+      dockerfile: ./Dockerfile
+    container_name: nsfw-service
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
     networks:
       - network
 
