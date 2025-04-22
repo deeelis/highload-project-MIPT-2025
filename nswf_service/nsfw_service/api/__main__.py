@@ -59,13 +59,14 @@ async def process_image(payload):
         base64_data = payload.get("data")
 
         if not base64_data:
-            return {"id": image_id, "user_id": user_id, "error": "IMAGE DATA EMPTY"}
+            return {"id": image_id, "user_id": user_id, 'data': base64_data, "error": "IMAGE DATA EMPTY"}
 
         image_path = await save_base64_image(base64_data)
         if not image_path:
             return {
                 "id": image_id,
                 "user_id": user_id,
+                "data": base64_data,
                 "error": "IMAGE SIZE TOO LARGE OR INVALID BASE64 DATA"
             }
 
@@ -90,6 +91,7 @@ async def process_image(payload):
         return {
             "id": image_id,
             "user_id": user_id,
+            "data": base64_data,
             "nsfw_scores": results['data'],
             "is_nsfw": is_nsfw
         }
