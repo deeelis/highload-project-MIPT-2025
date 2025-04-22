@@ -48,6 +48,6 @@ func SetupRoutes(router *gin.Engine, authController *http_controllers.AuthContro
 	{
 		protected.POST("/content/text", contentController.UploadText)
 		protected.POST("/content/image", contentController.UploadImage)
-		protected.GET("/content/:id/status", contentController.GetStatus)
+		protected.GET("/content/:id", contentController.GetContent)
 	}
 }
