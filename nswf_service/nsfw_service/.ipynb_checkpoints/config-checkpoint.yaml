@@ -1,6 +1,0 @@
-MODEL_PATH: nsfw_detector/nsfw_model.h5
-KAFKA:
-    TOPIC_INPUT: content.images
-    TOPIC_OUTPUT: content.images.result
-    GROUP_ID: images
-    BOOTSTRAP_SERVERS: kafka:9093
