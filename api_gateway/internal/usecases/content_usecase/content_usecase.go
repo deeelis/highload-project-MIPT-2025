@@ -2,16 +2,14 @@ package content_usecase
 
 import (
 	"api_gateway/internal/config"
-	"api_gateway/internal/grpc/storage_client"
-	kafka3 "api_gateway/internal/producer/kafka"
-	"context"
-	"log/slog"
-	"time"
-
 	"api_gateway/internal/domain/errors"
 	"api_gateway/internal/domain/models"
+	"api_gateway/internal/grpc/storage_client"
+	kafka3 "api_gateway/internal/producer/kafka"
 	"api_gateway/logger"
+	"context"
 	"github.com/google/uuid"
+	"log/slog"
 )
 
 type UseCase struct {
@@ -27,29 +25,21 @@ func NewContentUseCase(ctx context.Context, cfg *config.Config, log *slog.Logger
 	if err != nil {
 		return nil, err
 	}
+	client, err := storage_client.NewStorageClient(cfg.Storage, log)
+	if err != nil {
+		return nil, err
+	}
 	return &UseCase{
 		producer:    producer,
 		log:         log,
+		storage:     client,
 		cfg:         cfg,
 		storageAddr: cfg.Storage.ServiceAddress,
 	}, nil
 }
 
-func (uc *UseCase) initStorageClient() error {
-	if uc.storage != nil {
-		return nil
-	}
-
-	client, err := storage_client.NewStorageClient(uc.cfg.Storage.ServiceAddress, 5*time.Second, uc.log)
-	if err != nil {
-		return err
-	}
-
-	uc.storage = client
-	return nil
-}
-
-func (uc *UseCase) ProcessContent(userID string, contentType models.ContentType, data string) (*models.Content, error) {
+func (uc *UseCase) ProcessContent(userID string, contentType models.ContentType, data string, mimeType string) (*models.Content, error) {
+	ctx := context.Background()
 	const op = "content_usecase.ProcessContent"
 	log := uc.log.With(
 		slog.String("op", op),
@@ -58,12 +48,15 @@ func (uc *UseCase) ProcessContent(userID string, contentType models.ContentType,
 	)
 
 	content := &models.Content{
-		ID:        uuid.New().String(),
-		UserID:    userID,
-		Type:      contentType,
-		Data:      data,
-		Status:    "pending",
-		CreatedAt: time.Now(),
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		Type:     contentType,
+		Data:     data,
+		DataType: mimeType,
+	}
+
+	if err := uc.storage.RegisterContent(ctx, content.ID, string(content.Type)); err != nil {
+		return nil, errors.ErrInternalServer
 	}
 
 	if err := uc.producer.ProduceContent(content); err != nil {
@@ -75,12 +68,11 @@ func (uc *UseCase) ProcessContent(userID string, contentType models.ContentType,
 	return content, nil
 }
 
-func (uc *UseCase) GetContentStatus(ctx context.Context, contentID string) (*models.ContentStatus, error) {
-	if err := uc.initStorageClient(); err != nil {
-		return nil, err
+func (uc *UseCase) GetContent(ctx context.Context, contentID string) (*models.ContentStatus, error) {
+	if contentID == "" {
+		return nil, errors.ErrInvalidCredentials
 	}
-
-	return uc.storage.GetContentStatus(ctx, contentID)
+	return uc.storage.GetContent(ctx, contentID)
 }
 
 func (uc *UseCase) Close() error {

@@ -34,18 +34,15 @@ type AuthConfig struct {
 }
 
 type KafkaConfig struct {
-	Brokers         []string      `yaml:"brokers" env-required:"true"`
-	TextTopic       string        `yaml:"text_topic" env-default:"content.text"`
-	ImageTopic      string        `yaml:"image_topic" env-default:"content.images"`
-	AllContentTopic string        `yaml:"all_content_topic" env-default:"content.all"`
-	DeadLetterTopic string        `yaml:"dead_letter_topic" env-default:"content.dead_letter"`
-	MaxRetries      int           `yaml:"max_retries" env-default:"3"`
-	WriteTimeout    time.Duration `yaml:"write_timeout" env-default:"10s"`
-	RequiredAcks    int           `yaml:"required_acks" env-default:"1"`
+	Brokers         []string `yaml:"brokers" env-required:"true"`
+	TextTopic       string   `yaml:"text_topic" env-default:"content.text"`
+	ImageTopic      string   `yaml:"image_topic" env-default:"content.images"`
+	DeadLetterTopic string   `yaml:"dead_letter_topic" env-default:"content.dead_letter"`
 }
 
 type StorageConfig struct {
-	ServiceAddress string `yaml:"service_address"`
+	ServiceAddress string        `yaml:"service_address"`
+	Timeout        time.Duration `yaml:"timeout"`
 }
 
 func MustLoad() (*Config, error) {
