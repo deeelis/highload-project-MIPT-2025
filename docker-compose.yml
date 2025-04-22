@@ -19,7 +19,7 @@ services:
       
       # Настройки слушателей
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9093,EXTERNAL://localhost:9092,PLAINTEXT://kafka:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9093,EXTERNAL://localhost:9092 # PLAINTEXT://kafka:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       
@@ -63,6 +63,7 @@ services:
       - ./api_gateway/config:/app/config:ro
     environment:
       CONFIG_PATH: /app/config/config-local.yaml
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
 
   auth_service:
     build:
