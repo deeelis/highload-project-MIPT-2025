@@ -90,19 +90,20 @@ func (c *ImageConsumer) ConsumeImages(ctx context.Context) error {
 		c.log.Debug("received message",
 			"image_id", content.ID,
 		)
-        imageMessage := &models.ImageMessage{
-          ID:         content.ID,
-          UserID:     content.UserID,
-          Data:       content.Data,
-          NsfwScores: models.NsfwScoresResult{
-            Drawings: content.NsfwScores.Drawings,
-            Hentai:   content.NsfwScores.Hentai,
-            Neutral:  content.NsfwScores.Neutral,
-            Porn:     content.NsfwScores.Porn,
-            Sexy:     content.NsfwScores.Sexy,
-          },
-        }
-        
+
+		imageMessage := &models.ImageMessage{
+			ID:     content.ID,
+			UserID: content.UserID,
+			Data:   content.Data,
+			NsfwScores: models.NsfwScoresResult{
+				Drawings: content.NsfwScores.Drawings,
+				Hentai:   content.NsfwScores.Hentai,
+				Neutral:  content.NsfwScores.Neutral,
+				Porn:     content.NsfwScores.Porn,
+				Sexy:     content.NsfwScores.Sexy,
+			},
+		}
+    
 		err = c.usecase.ProcessImageMessage(ctx, imageMessage)
 		if err != nil {
 			c.log.Error("failed to process image",
