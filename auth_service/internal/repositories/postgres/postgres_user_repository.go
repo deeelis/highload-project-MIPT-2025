@@ -19,9 +19,9 @@ import (
 const driverName = "postgres"
 
 type UserRepository struct {
-	cfg    *config.DatabaseConfig
-	db     *sql.DB
-	logger *slog.Logger
+	cfg *config.DatabaseConfig
+	db  *sql.DB
+	log *slog.Logger
 }
 
 func NewUserRepository(ctx context.Context, cfg *config.DatabaseConfig, log *slog.Logger) (*UserRepository, error) {
@@ -30,15 +30,19 @@ func NewUserRepository(ctx context.Context, cfg *config.DatabaseConfig, log *slo
 
 	log.Info("connecting to database",
 		slog.String("driver", driverName),
-		slog.String("dsn_mask", maskDSN(cfg.DSN)), // Функция для маскирования чувствительных данных
+		slog.String("dsn_mask", maskDSN(cfg.DSN)),
 	)
+
+	startTime := time.Now()
+	defer func() {
+		log.Info("database connection completed",
+			slog.Duration("duration", time.Since(startTime)))
+	}()
 
 	db, err := sql.Open(driverName, cfg.DSN)
 	if err != nil {
 		log.Error("failed to open database connection",
-			slog.Any("error", err),
-			slog.String("driver", driverName),
-		)
+			slog.String("error", err.Error()))
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
 
@@ -53,24 +57,24 @@ func NewUserRepository(ctx context.Context, cfg *config.DatabaseConfig, log *slo
 
 	log.Info("database connection established successfully")
 	return &UserRepository{
-		cfg:    cfg,
-		db:     db,
-		logger: log,
+		cfg: cfg,
+		db:  db,
+		log: log,
 	}, nil
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *models.User) (string, error) {
 	const op = "postgres.UserRepository.Create"
-	log := r.logger.With(
+	log := r.log.With(
 		slog.String("op", op),
-		slog.String("email", user.Email),
 	)
 
 	log.Info("creating new user")
+	startTime := time.Now()
 
 	user.ID = uuid.New().String()
 	user.CreatedAt = time.Now()
-	user.UpdatedAt = time.Now()
+	user.UpdatedAt = user.CreatedAt
 
 	query, args, err := sq.Insert("users").
 		Columns("id", "email", "password", "name", "created_at", "updated_at").
@@ -95,6 +99,7 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) (string,
 			user.CreatedAt,
 			user.UpdatedAt,
 		}),
+		slog.Duration("duration", time.Since(startTime)),
 	)
 
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(&user.ID)
@@ -113,18 +118,19 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) (string,
 
 	log.Info("user created successfully",
 		slog.String("user_id", user.ID),
+		slog.Duration("duration", time.Since(startTime)),
 	)
 	return user.ID, nil
 }
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	const op = "postgres.UserRepository.GetByEmail"
-	log := r.logger.With(
+	log := r.log.With(
 		slog.String("op", op),
-		slog.String("email", email),
 	)
 
 	log.Debug("getting user by email")
+	startTime := time.Now()
 
 	query, args, err := sq.
 		Select("id", "email", "password", "name", "created_at", "updated_at").
@@ -142,7 +148,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	log.Debug("executing SQL query",
 		slog.String("query", query),
 		slog.Any("args", args),
-	)
+		slog.Duration("duration", time.Since(startTime)))
 
 	var user models.User
 	err = r.db.QueryRowContext(ctx, query, args...).Scan(
@@ -156,29 +162,32 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			log.Debug("user not found")
+			log.Debug("user not found",
+				slog.Duration("duration", time.Since(startTime)))
 			return nil, e.ErrUserNotFound
 		}
 		log.Error("failed to get user by email",
 			slog.Any("error", err),
-		)
+			slog.Duration("duration", time.Since(startTime)))
 		return nil, e.ErrInternalServer
 	}
 
 	log.Debug("user found",
 		slog.String("user_id", user.ID),
+		slog.Duration("duration", time.Since(startTime)),
 	)
 	return &user, nil
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, error) {
 	const op = "postgres.UserRepository.GetByID"
-	log := r.logger.With(
+	log := r.log.With(
 		slog.String("op", op),
 		slog.String("user_id", id),
 	)
 
 	log.Debug("getting user by ID")
+	startTime := time.Now()
 
 	query, args, err := sq.
 		Select("id", "email", "password", "name", "created_at", "updated_at").
@@ -196,6 +205,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 	log.Debug("executing SQL query",
 		slog.String("query", query),
 		slog.Any("args", args),
+		slog.Duration("duration", time.Since(startTime)),
 	)
 
 	var user models.User
@@ -210,17 +220,19 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			log.Debug("user not found")
+			log.Debug("user not found",
+				slog.Duration("duration", time.Since(startTime)))
 			return nil, e.ErrUserNotFound
 		}
 		log.Error("failed to get user by ID",
 			slog.Any("error", err),
-		)
+			slog.Duration("duration", time.Since(startTime)))
 		return nil, e.ErrInternalServer
 	}
 
 	log.Debug("user found",
 		slog.String("email", user.Email),
+		slog.Duration("duration", time.Since(startTime)),
 	)
 	return &user, nil
 }

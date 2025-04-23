@@ -8,6 +8,7 @@ import (
 	"auth_service/internal/repositories/postgres"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
@@ -30,14 +31,27 @@ func NewAuthUsecase(
 	accessExpiry time.Duration,
 	refreshExpiry time.Duration,
 ) (*AuthUsecase, error) {
-	const op = "auth_usecase.NewAuthUsecase"
+	const op = "auth_usecase.New"
 	log = log.With(slog.String("op", op))
 
-	ctx := context.Background()
+	log.Info("initializing auth usecase",
+		slog.String("access_expiry", accessExpiry.String()),
+		slog.String("refresh_expiry", refreshExpiry.String()))
+
+	startTime := time.Now()
+	defer func() {
+		log.Info("auth usecase initialization completed",
+			slog.Duration("duration", time.Since(startTime)))
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	userRepo, err := postgres.NewUserRepository(ctx, &cfg.Database, log)
 	if err != nil {
-		log.Error("failed to create user repository", slog.Any("error", err))
-		return nil, err
+		log.Error("failed to create user repository",
+			slog.String("error", err.Error()))
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	log.Info("auth usecase initialized successfully")
@@ -55,36 +69,45 @@ func (uc *AuthUsecase) Register(ctx context.Context, user *models.User) (string,
 	const op = "auth_usecase.Register"
 	log := uc.log.With(
 		slog.String("op", op),
-		slog.String("email", user.Email),
 	)
 
-	log.Info("attempting to register user")
+	log.Info("registering new user")
+	startTime := time.Now()
 
 	existingUser, err := uc.userRepo.GetByEmail(ctx, user.Email)
 	if err != nil && !errors.Is(err, e.ErrUserNotFound) {
-		log.Error("failed to check user existence", slog.Any("error", err))
+		log.Error("failed to check user existence",
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startTime)))
 		return "", err
 	}
 
 	if existingUser != nil {
-		log.Warn("user already exists")
+		log.Warn("user already exists",
+			slog.Duration("duration", time.Since(startTime)))
 		return "", e.ErrUserAlreadyExists
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Error("failed to hash password", slog.Any("error", err))
+		log.Error("failed to hash password",
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startTime)))
 		return "", err
 	}
 	user.Password = string(hashedPassword)
 
 	userID, err := uc.userRepo.Create(ctx, user)
 	if err != nil {
-		log.Error("failed to create user", slog.Any("error", err))
+		log.Error("failed to create user in repository",
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startTime)))
 		return "", err
 	}
 
-	log.Info("user registered successfully", slog.String("user_id", userID))
+	log.Info("user registered successfully",
+		slog.String("user_id", userID),
+		slog.Duration("duration", time.Since(startTime)))
 	return userID, nil
 }
 
@@ -92,89 +115,128 @@ func (uc *AuthUsecase) Login(ctx context.Context, email, password string) (*mode
 	const op = "auth_usecase.Login"
 	log := uc.log.With(
 		slog.String("op", op),
-		slog.String("email", email),
 	)
 
-	log.Info("attempting user login")
+	log.Info("authenticating user")
+	startTime := time.Now()
 
 	user, err := uc.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, e.ErrUserNotFound) {
-			log.Warn("user not found")
+			log.Warn("user not found",
+				slog.Duration("duration", time.Since(startTime)))
 		} else {
-			log.Error("failed to get user by email", slog.Any("error", err))
+			log.Error("failed to retrieve user",
+				slog.String("error", err.Error()),
+				slog.Duration("duration", time.Since(startTime)))
 		}
 		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		log.Warn("invalid credentials provided")
+		log.Warn("invalid password provided",
+			slog.Duration("duration", time.Since(startTime)))
 		return nil, e.ErrInvalidCredentials
 	}
 
 	tokens, err := uc.generateTokens(user.ID)
 	if err != nil {
-		log.Error("failed to generate tokens", slog.Any("error", err))
-		return nil, err
+		log.Error("failed to generate tokens",
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startTime)))
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	log.Info("user logged in successfully", slog.String("user_id", user.ID))
+	log.Info("user authenticated successfully",
+		slog.String("user_id", user.ID),
+		slog.Duration("duration", time.Since(startTime)))
+
 	return tokens, nil
 }
 
 func (uc *AuthUsecase) ValidateToken(tokenString string) (string, error) {
 	const op = "auth_usecase.ValidateToken"
-	log := uc.log.With(slog.String("op", op))
+	log := uc.log.With(
+		slog.String("op", op),
+		slog.Int("token_length", len(tokenString)),
+	)
 
 	log.Debug("validating token")
+	startTime := time.Now()
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			log.Warn("invalid token signing method")
+			log.Warn("unexpected token signing method",
+				slog.String("alg", token.Header["alg"].(string)))
 			return nil, e.ErrInvalidToken
 		}
 		return []byte(uc.secretKey), nil
 	})
 
 	if err != nil {
-		log.Warn("failed to parse token", slog.Any("error", err))
+		var jwtErr *jwt.ValidationError
+		if errors.As(err, &jwtErr) {
+			log.Warn("token validation failed",
+				slog.String("error", jwtErr.Error()),
+				slog.Duration("duration", time.Since(startTime)))
+		} else {
+			log.Error("failed to parse token",
+				slog.String("error", err.Error()),
+				slog.Duration("duration", time.Since(startTime)))
+		}
 		return "", e.ErrInvalidToken
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		userID, ok := claims["user_id"].(string)
 		if !ok {
-			log.Warn("invalid token claims")
+			log.Warn("missing user_id in token claims",
+				slog.Duration("duration", time.Since(startTime)))
 			return "", e.ErrInvalidToken
 		}
 
-		log.Debug("token validated successfully", slog.String("user_id", userID))
+		log.Debug("token validated successfully",
+			slog.String("user_id", userID),
+			slog.Duration("duration", time.Since(startTime)))
+
 		return userID, nil
 	}
 
-	log.Warn("invalid token")
+	log.Warn("invalid token claims",
+		slog.Duration("duration", time.Since(startTime)))
 	return "", e.ErrInvalidToken
 }
 
 func (uc *AuthUsecase) RefreshToken(refreshToken string) (*models.TokenDetails, error) {
 	const op = "auth_usecase.RefreshToken"
-	log := uc.log.With(slog.String("op", op))
+	log := uc.log.With(
+		slog.String("op", op),
+		slog.Int("token_length", len(refreshToken)),
+	)
 
-	log.Info("attempting to refresh token")
+	log.Info("refreshing token")
+	startTime := time.Now()
 
 	userID, err := uc.ValidateToken(refreshToken)
 	if err != nil {
-		log.Warn("invalid refresh token", slog.Any("error", err))
+		log.Warn("invalid refresh token provided",
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startTime)))
 		return nil, err
 	}
 
 	tokens, err := uc.generateTokens(userID)
 	if err != nil {
-		log.Error("failed to generate new tokens", slog.Any("error", err))
+		log.Error("failed to generate new tokens",
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startTime)))
 		return nil, err
 	}
 
-	log.Info("token refreshed successfully", slog.String("user_id", userID))
+	log.Info("tokens refreshed successfully",
+		slog.String("user_id", userID),
+		slog.Duration("duration", time.Since(startTime)))
+
 	return tokens, nil
 }
 
@@ -186,6 +248,7 @@ func (uc *AuthUsecase) generateTokens(userID string) (*models.TokenDetails, erro
 	)
 
 	log.Debug("generating new tokens")
+	startTime := time.Now()
 
 	now := time.Now()
 	accessExpire := now.Add(uc.accessExpiry).Unix()
@@ -199,7 +262,9 @@ func (uc *AuthUsecase) generateTokens(userID string) (*models.TokenDetails, erro
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	accessTokenString, err := accessToken.SignedString([]byte(uc.secretKey))
 	if err != nil {
-		log.Error("failed to sign access token", slog.Any("error", err))
+		log.Error("failed to sign access token",
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startTime)))
 		return nil, err
 	}
 
@@ -211,14 +276,16 @@ func (uc *AuthUsecase) generateTokens(userID string) (*models.TokenDetails, erro
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refreshTokenString, err := refreshToken.SignedString([]byte(uc.secretKey))
 	if err != nil {
-		log.Error("failed to sign refresh token", slog.Any("error", err))
+		log.Error("failed to sign refresh token",
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startTime)))
 		return nil, err
 	}
 
 	log.Debug("tokens generated successfully",
 		slog.Int64("access_expire", accessExpire),
 		slog.Int64("refresh_expire", refreshExpire),
-	)
+		slog.Duration("duration", time.Since(startTime)))
 
 	return &models.TokenDetails{
 		AccessToken:  accessTokenString,

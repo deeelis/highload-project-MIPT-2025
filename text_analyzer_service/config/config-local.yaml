@@ -1,0 +1,8 @@
+kafka:
+  brokers:
+    - "kafka:9092"
+  input_topic: "content.text"
+  result_topic: "content.text.result"
+  error_topic: "content.dead_letter"
+  group_id: "text_analyzer_group"
+env: "local"

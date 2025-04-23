@@ -4,10 +4,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -15,6 +16,9 @@ import (
 )
 
 func main() {
+	startTime := time.Now()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	var (
 		dbURL           string
 		migrationsPath  string
@@ -31,7 +35,8 @@ func main() {
 	if dbURL == "" {
 		dbURL = os.Getenv("DB_URL")
 		if dbURL == "" {
-			log.Fatal("database connection URL is required (use -dsn flag or DB_URL env var)")
+			logger.Error("database connection URL is required")
+			os.Exit(1)
 		}
 	}
 
@@ -39,58 +44,98 @@ func main() {
 		dbURL = "postgres://" + dbURL
 	}
 
-	if migrationsPath == "" {
-		log.Fatal("migrations path is required (use -migrations-path flag)")
+	loggableDBURL := dbURL
+	if atIndex := strings.Index(dbURL, "@"); atIndex > 0 {
+		loggableDBURL = "postgres://*****" + dbURL[atIndex:]
 	}
+
+	if migrationsPath == "" {
+		logger.Error("migrations path is required")
+		os.Exit(1)
+	}
+
+	logger.Info("initializing migrator",
+		slog.String("migrations_path", migrationsPath),
+		slog.String("db_url", loggableDBURL))
 
 	m, err := migrate.New(
 		"file://"+migrationsPath,
 		fmt.Sprintf("%s", dbURL),
 	)
 	if err != nil {
-		log.Fatalf("failed to initialize migrator: %v", err)
+		logger.Error("failed to initialize migrator",
+			slog.String("error", err.Error()))
+		os.Exit(1)
 	}
-	defer m.Close()
+	defer func() {
+		if _, err := m.Close(); err != nil {
+			logger.Error("failed to close migrator",
+				slog.String("error", err.Error()))
+		}
+	}()
 
 	switch action {
 	case "up":
+		logger.Info("applying migrations")
 		if err := m.Up(); err != nil {
 			if errors.Is(err, migrate.ErrNoChange) {
-				log.Println("no migrations to apply")
+				logger.Info("no migrations to apply")
 				return
 			}
-			log.Fatalf("failed to apply migrations: %v", err)
+			logger.Error("failed to apply migrations",
+				slog.String("error", err.Error()))
+			os.Exit(1)
 		}
-		log.Println("migrations applied successfully")
-
+		logger.Info("migrations applied successfully",
+			slog.Duration("duration", time.Since(startTime)))
 	case "down":
+		logger.Info("rolling back migrations")
 		if err := m.Down(); err != nil {
-			log.Fatalf("failed to rollback migrations: %v", err)
+			logger.Error("failed to rollback migrations",
+				slog.String("error", err.Error()))
+			os.Exit(1)
 		}
-		log.Println("migrations rolled back successfully")
-
+		logger.Info("migrations rolled back successfully",
+			slog.Duration("duration", time.Since(startTime)))
 	case "force":
 		version := flag.Arg(0)
 		if version == "" {
-			log.Fatal("version is required for force action")
+			logger.Error("version is required for force action")
+			os.Exit(1)
 		}
 		v, err := strconv.Atoi(version)
 		if err != nil {
-			log.Fatalf("invalid version number: %v", err)
+			logger.Error("invalid version number",
+				slog.String("version", version),
+				slog.String("error", err.Error()))
+			os.Exit(1)
 		}
+		logger.Info("forcing migration version",
+			slog.Int("version", v))
 		if err := m.Force(v); err != nil {
-			log.Fatalf("failed to force migration: %v", err)
+			logger.Error("failed to force migration",
+				slog.Int("version", v),
+				slog.String("error", err.Error()))
+			os.Exit(1)
 		}
-		log.Printf("forced migration to version %d\n", v)
-
+		logger.Info("migration forced successfully",
+			slog.Int("version", v),
+			slog.Duration("duration", time.Since(startTime)))
 	case "version":
+		logger.Info("checking migration version")
 		version, dirty, err := m.Version()
 		if err != nil {
-			log.Fatalf("failed to get migration version: %v", err)
+			logger.Error("failed to get migration version",
+				slog.String("error", err.Error()))
+			os.Exit(1)
 		}
-		log.Printf("current migration version: %d (dirty: %v)\n", version, dirty)
-
+		logger.Info("current migration version",
+			slog.Int("version", int(version)),
+			slog.Bool("dirty", dirty),
+			slog.Duration("duration", time.Since(startTime)))
 	default:
-		log.Fatalf("unknown action: %s (available: up, down, force, version)", action)
+		logger.Error("unknown action",
+			slog.String("action", action))
+		os.Exit(1)
 	}
 }
