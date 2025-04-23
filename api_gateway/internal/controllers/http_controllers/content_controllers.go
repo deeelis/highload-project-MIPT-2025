@@ -201,8 +201,7 @@ func (c *ContentController) GetContent(ctx *gin.Context) {
 	contentStatus, err := c.contentUC.GetContent(ctx, contentID)
 	if err != nil {
 		log.Error("failed to retrieve content",
-			logger.Err(err),
-			slog.String("content_type", contentStatus.Type))
+			logger.Err(err))
 
 		switch err {
 		case errors.ErrInvalidCredentials:

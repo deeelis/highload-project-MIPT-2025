@@ -31,7 +31,7 @@ func NewRouter(cfg *config.Config, log *slog.Logger) (*gin.Engine, error) {
 
 	log.Debug("content controller initialized")
 
-	if cfg.Env == "production" {
+	if cfg.Env == "prod" {
 		gin.SetMode(gin.ReleaseMode)
 		log.Info("running in production mode")
 	} else {
