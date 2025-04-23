@@ -20,24 +20,44 @@ type Producer struct {
 }
 
 func NewProducer(ctx context.Context, cfg *config.KafkaConfig, log *slog.Logger) (*Producer, error) {
-	conn1, err := kafka2.ConnectKafka(ctx, "kafka:9092", "content.text", 0)
+	const op = "kafka.NewProducer"
+	log = log.With(slog.String("op", op))
+
+	log.Info("connecting to Kafka...",
+		slog.Any("brokers", cfg.Brokers),
+		slog.String("text_topic", cfg.TextTopic),
+		slog.String("image_topic", cfg.ImageTopic))
+
+	conn1, err := kafka2.ConnectKafka(ctx, cfg.Brokers[0], cfg.TextTopic, 0)
 	if err != nil {
-		log.Error("Kafka connect error", err.Error())
+		log.Error("failed to connect to text topic",
+			logger.Err(err),
+			slog.String("topic", cfg.TextTopic))
 		return nil, err
 	}
-	conn2, err := kafka2.ConnectKafka(ctx, "kafka:9092", "content.image", 0)
+	log.Info("successfully connected to text topic",
+		slog.String("topic", cfg.TextTopic))
+
+	conn2, err := kafka2.ConnectKafka(ctx, cfg.Brokers[0], cfg.ImageTopic, 0)
 	if err != nil {
-		log.Error("Kafka connect error", err.Error())
+		log.Error("failed to connect to image topic",
+			logger.Err(err),
+			slog.String("topic", cfg.ImageTopic))
+		_ = conn1.Close()
 		return nil, err
 	}
+	log.Info("successfully connected to image topic",
+		slog.String("topic", cfg.ImageTopic))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
+	var connectedBroker string
 	for _, broker := range cfg.Brokers {
+		log.Debug("trying to connect to broker", slog.String("broker", broker))
 		conn, err := kafka.DialContext(ctx, "tcp", broker)
 		if err != nil {
-			log.Error("failed to connect to kafka broker",
+			log.Warn("failed to connect to broker",
 				logger.Err(err),
 				slog.String("broker", broker))
 			continue
@@ -46,14 +66,22 @@ func NewProducer(ctx context.Context, cfg *config.KafkaConfig, log *slog.Logger)
 
 		brokers, err := conn.Brokers()
 		if err != nil {
-			log.Error("failed to get brokers list", logger.Err(err))
+			log.Warn("failed to get brokers list",
+				logger.Err(err),
+				slog.String("broker", broker))
 			continue
 		}
 
-		log.Info("kafka connection established",
+		connectedBroker = broker
+		log.Info("successfully connected to broker",
 			slog.String("broker", broker),
 			slog.Any("available_brokers", brokers))
 		break
+	}
+
+	if connectedBroker == "" {
+		log.Error("no available brokers")
+		return nil, e.ErrKafkaUnavailable
 	}
 
 	return &Producer{
@@ -68,7 +96,10 @@ func (p *Producer) ProduceContent(content *models.Content) error {
 	log := p.log.With(
 		slog.String("op", op),
 		slog.String("content_id", content.ID),
+		slog.String("content_type", string(content.Type)),
 	)
+
+	log.Debug("producing content...")
 
 	var conn *kafka.Conn
 	switch content.Type {
@@ -86,31 +117,48 @@ func (p *Producer) ProduceContent(content *models.Content) error {
 		log.Error("failed to marshal content", logger.Err(err))
 		return err
 	}
+	log.Debug("content marshaled successfully")
 
+	startTime := time.Now()
 	err = kafka2.SendToTopic(conn, msg)
 	if err != nil {
 		log.Error("failed to produce message",
-			logger.Err(err))
+			logger.Err(err),
+			slog.Duration("duration", time.Since(startTime)))
 		return err
 	}
 
 	log.Info("content successfully produced",
 		slog.String("topic", string(content.Type)),
-		slog.String("content_id", content.ID))
+		slog.Duration("duration", time.Since(startTime)))
 	return nil
 }
 
 func (p *Producer) Close() error {
+	const op = "kafka.Producer.Close"
+	log := p.log.With(slog.String("op", op))
+
+	log.Info("closing Kafka connections...")
 	var err error
 
 	if closeErr := p.toImage.Close(); closeErr != nil {
-		p.log.Error("failed to close text writer", logger.Err(closeErr))
+		log.Error("failed to close image writer", logger.Err(closeErr))
 		err = closeErr
+	} else {
+		log.Debug("image writer closed successfully")
 	}
 
 	if closeErr := p.toText.Close(); closeErr != nil {
-		p.log.Error("failed to close image writer", logger.Err(closeErr))
+		log.Error("failed to close text writer", logger.Err(closeErr))
 		err = closeErr
+	} else {
+		log.Debug("text writer closed successfully")
+	}
+
+	if err == nil {
+		log.Info("all connections closed successfully")
+	} else {
+		log.Warn("closed with errors")
 	}
 
 	return err
