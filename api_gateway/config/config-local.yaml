@@ -15,7 +15,7 @@ auth:
 
 kafka:
   brokers:
-    - "kafka:9093" # поменяла на 9093
+    - "kafka:9092"
   text_topic: "content.text"
   image_topic: "content.images"
   all_content_topic: "content.all"
