@@ -79,7 +79,7 @@ func (c *ImageConsumer) ConsumeImages(ctx context.Context) error {
 			return err
 		}
 
-		var content models.ImageMessage
+		var content models.ImageKafkaMessage
 		if err := json.Unmarshal(msg, &content); err != nil {
 			c.log.Error("failed to unmarshal message",
 				err.Error(),
@@ -90,8 +90,20 @@ func (c *ImageConsumer) ConsumeImages(ctx context.Context) error {
 		c.log.Debug("received message",
 			"image_id", content.ID,
 		)
-
-		err = c.usecase.ProcessImageMessage(ctx, &content)
+        imageMessage := &models.ImageMessage{
+          ID:         content.ID,
+          UserID:     content.UserID,
+          Data:       content.Data,
+          NsfwScores: models.NsfwScoresResult{
+            Drawings: content.NsfwScores.Drawings,
+            Hentai:   content.NsfwScores.Hentai,
+            Neutral:  content.NsfwScores.Neutral,
+            Porn:     content.NsfwScores.Porn,
+            Sexy:     content.NsfwScores.Sexy,
+          },
+        }
+        
+		err = c.usecase.ProcessImageMessage(ctx, imageMessage)
 		if err != nil {
 			c.log.Error("failed to process image",
 				"image_id", content.ID,

@@ -34,7 +34,8 @@ async def connect_to_kafka():
             consumer = AIOKafkaConsumer(
                 config.KAFKA.TOPIC_INPUT,
                 bootstrap_servers=config.KAFKA.BOOTSTRAP_SERVERS,
-                group_id=config.KAFKA.GROUP_ID,
+                auto_offset_reset="earliest",
+                enable_auto_commit=False 
             )
             await consumer.start()
 
@@ -59,6 +60,7 @@ async def process_image(payload):
         base64_data = payload.get("data")
 
         if not base64_data:
+            logger.error(f"not base64, try again")
             return {"id": image_id, "user_id": user_id, 'data': base64_data, "error": "IMAGE DATA EMPTY"}
 
         image_path = await save_base64_image(base64_data)
@@ -72,7 +74,7 @@ async def process_image(payload):
 
         results = predict.classify(model, image_path)
         os.remove(image_path)
-
+        logger.info(f"image analysed everything good")
         hentai = results['data']['hentai']
         sexy = results['data']['sexy']
         porn = results['data']['porn']
@@ -112,10 +114,17 @@ async def consume_and_produce():
                     payload = json.loads(msg.value.decode("utf-8"))
                     logging.info(f"Processing image ID: {payload.get('id')}")
                     result = await process_image(payload)
-                    await producer.send_and_wait(
-                        config.KAFKA.TOPIC_OUTPUT,
-                        json.dumps(result).encode("utf-8")
-                    )
+                    logging.info(f"Processed image ID: {json.dumps(result)}")
+                    try:
+                        fut = await producer.send(
+                            config.KAFKA.TOPIC_OUTPUT,
+                            json.dumps(result).encode("utf-8"),
+                            #partition=1
+                        )
+                        res = await fut
+                        logger.info("✅ Сообщение отправлено!")
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка отправки: {e}")
                     logging.info(f"✔️ Image processed: {payload.get('id')}")
                 except Exception as e:
                     logging.error(f"Error during message handling: {e}")
