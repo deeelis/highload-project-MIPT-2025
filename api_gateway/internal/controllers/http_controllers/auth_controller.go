@@ -2,7 +2,6 @@ package http_controllers
 
 import (
 	"api_gateway/internal/config"
-	"api_gateway/internal/domain/errors"
 	"api_gateway/internal/usecases"
 	"api_gateway/internal/usecases/auth_usecase"
 	"api_gateway/logger"
@@ -67,17 +66,15 @@ func (c *AuthController) Register(ctx *gin.Context) {
 	if err != nil {
 		log.Error("registration failed",
 			logger.Err(err),
-			slog.String("email", req.Email),
-			slog.Int("status_code", errorToStatusCode(err)))
-		ctx.JSON(errorToStatusCode(err), gin.H{"error": err.Error()})
+			slog.String("email", req.Email))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	userId := tokenDetails.UserID
 
 	log.Info("registration successful",
-		slog.String("user_id", userId),
-		slog.String("email", req.Email))
+		slog.String("user_id", userId))
 	ctx.JSON(http.StatusCreated, userId)
 }
 
@@ -112,9 +109,8 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	if err != nil {
 		log.Warn("login failed",
 			logger.Err(err),
-			slog.String("email", req.Email),
-			slog.Int("status_code", errorToStatusCode(err)))
-		ctx.JSON(errorToStatusCode(err), gin.H{"error": err.Error()})
+			slog.String("email", req.Email))
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -151,25 +147,11 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 	tokens, err := c.authUC.RefreshToken(ctx.Request.Context(), req.RefreshToken)
 	if err != nil {
 		log.Warn("refresh token failed",
-			logger.Err(err),
-			slog.Int("status_code", errorToStatusCode(err)))
-		ctx.JSON(errorToStatusCode(err), gin.H{"error": err.Error()})
+			logger.Err(err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	log.Info("refresh token successful")
 	ctx.JSON(http.StatusOK, tokens)
-}
-
-func errorToStatusCode(err error) int {
-	switch err {
-	case errors.ErrInvalidCredentials:
-		return http.StatusUnauthorized
-	case errors.ErrUserAlreadyExists:
-		return http.StatusConflict
-	case errors.ErrUnauthorized:
-		return http.StatusUnauthorized
-	default:
-		return http.StatusInternalServerError
-	}
 }

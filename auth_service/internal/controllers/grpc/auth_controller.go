@@ -102,6 +102,7 @@ func (c *AuthController) Login(ctx context.Context, req *auth.LoginRequest) (*au
 
 	tokens, err := c.authUsecase.Login(ctx, req.Email, req.Password)
 	if err != nil {
+		log.Error(err.Error())
 		if errors.Is(err, e.ErrInvalidCredentials) {
 			log.Warn("invalid credentials",
 				slog.Duration("duration", time.Since(startTime)))

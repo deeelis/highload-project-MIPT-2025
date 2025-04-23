@@ -15,8 +15,6 @@ github.com/deeelis/auth-protos v1.0.0 h1:FBgkxJmyiurxELRNIavUbcsNyCoIwtw1NNP41h2
 github.com/deeelis/auth-protos v1.0.0/go.mod h1:eeriYhvlKtF0Ep3SEScumIWMMotZ2ieIRK217lmIx/4=
 github.com/deeelis/storage-protos v0.0.0 h1:rg4Ea3/wJvbIBAAG38ccbIzw3N4Jdtk33yPwt0UhlC8=
 github.com/deeelis/storage-protos v0.0.0/go.mod h1:oqeZ1Y2cAroCzP58QKV7oYt4mJBMNjKzVppTK/s2oWg=
-github.com/deeelis/storage-protos v0.0.1 h1:oqwnZX+HLTXMbdFWangx5/HrMcKDyCjT/yr+2joOaAg=
-github.com/deeelis/storage-protos v0.0.1/go.mod h1:oqeZ1Y2cAroCzP58QKV7oYt4mJBMNjKzVppTK/s2oWg=
 github.com/gabriel-vasile/mimetype v1.4.3 h1:in2uUcidCuFcDKtdcBxlR0rJ1+fsokWf+uqxgUFjbI0=
 github.com/gabriel-vasile/mimetype v1.4.3/go.mod h1:d8uq/6HKRL6CGdk+aubisF/M5GcPfT7nKyLpA0lbSSk=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=

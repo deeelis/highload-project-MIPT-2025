@@ -79,7 +79,7 @@ func (uc *AuthUsecase) Register(ctx context.Context, user *models.User) (string,
 		log.Error("failed to check user existence",
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startTime)))
-		return "", fmt.Errorf("%s: %w", op, err)
+		return "", err
 	}
 
 	if existingUser != nil {
@@ -93,7 +93,7 @@ func (uc *AuthUsecase) Register(ctx context.Context, user *models.User) (string,
 		log.Error("failed to hash password",
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startTime)))
-		return "", fmt.Errorf("%s: %w", op, err)
+		return "", err
 	}
 	user.Password = string(hashedPassword)
 
@@ -102,7 +102,7 @@ func (uc *AuthUsecase) Register(ctx context.Context, user *models.User) (string,
 		log.Error("failed to create user in repository",
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startTime)))
-		return "", fmt.Errorf("%s: %w", op, err)
+		return "", err
 	}
 
 	log.Info("user registered successfully",
@@ -130,7 +130,7 @@ func (uc *AuthUsecase) Login(ctx context.Context, email, password string) (*mode
 				slog.String("error", err.Error()),
 				slog.Duration("duration", time.Since(startTime)))
 		}
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
@@ -222,7 +222,7 @@ func (uc *AuthUsecase) RefreshToken(refreshToken string) (*models.TokenDetails, 
 		log.Warn("invalid refresh token provided",
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startTime)))
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, err
 	}
 
 	tokens, err := uc.generateTokens(userID)
@@ -230,7 +230,7 @@ func (uc *AuthUsecase) RefreshToken(refreshToken string) (*models.TokenDetails, 
 		log.Error("failed to generate new tokens",
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startTime)))
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, err
 	}
 
 	log.Info("tokens refreshed successfully",
@@ -265,7 +265,7 @@ func (uc *AuthUsecase) generateTokens(userID string) (*models.TokenDetails, erro
 		log.Error("failed to sign access token",
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startTime)))
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, err
 	}
 
 	refreshClaims := jwt.MapClaims{
@@ -279,7 +279,7 @@ func (uc *AuthUsecase) generateTokens(userID string) (*models.TokenDetails, erro
 		log.Error("failed to sign refresh token",
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startTime)))
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, err
 	}
 
 	log.Debug("tokens generated successfully",
