@@ -1,0 +1,26 @@
+grpc:
+  timeout: 5s
+  port: 50052
+cache:
+  url: "redis://redis:6379/0"
+repo:
+  dsn: postgres://admin:password@storage_db:5432/storage?sslmode=disable
+s3:
+  endpoint: "http://minio:9000"
+  region: "us-east-1"
+  bucket: "images"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  url: "http://localhost:9000"
+kafka:
+  brokers:
+    - "kafka:9092"
+  text_topic: "content.text.result"
+  image_topic: "content.images.result"
+  all_content_topic: "content.all"
+  dead_letter_topic: "content.dead_letter"
+  group_id: "text_analyzer_group"
+  max_retries: 3
+  write_timeout: 10s
+  required_acks: 1
+env: "local"

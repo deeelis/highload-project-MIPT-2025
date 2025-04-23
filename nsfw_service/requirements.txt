@@ -1,0 +1,8 @@
+asyncio
+aiokafka
+aiofiles
+tensorflow==2.13.0
+tensorflow-hub==0.13.0
+pillow
+omegaconf
+regex
