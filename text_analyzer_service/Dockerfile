@@ -4,12 +4,12 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY config/ ./config/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o text-analyzer ./cmd/main.go
+#COPY config/ ./config/
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /text_analyzer_service ./cmd/main.go
 
-FROM alpine:3.18
+FROM alpine:latest
 WORKDIR /app
 RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/text-analyzer .
-COPY --from=builder /app/config ./config
-CMD ["./text-analyzer"]
+COPY --from=builder /text_analyzer_service /app/text_analyzer_service
+COPY --from=builder /app/config /app/config
+CMD ["/app/text_analyzer_service"]
