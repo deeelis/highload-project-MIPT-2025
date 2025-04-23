@@ -17,7 +17,7 @@ func SendToTopic(conn *kafka.Conn, message []byte) error {
 }
 
 func ReadFromTopic(conn *kafka.Conn) ([]byte, error) {
-	b := make([]byte, 10e3)
+	b := make([]byte, 20e5)
 	n, err := conn.Read(b)
 	if err != nil {
 		return nil, err

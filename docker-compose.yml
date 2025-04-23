@@ -61,6 +61,21 @@ services:
     volumes:
       - ./text_analyzer_service/config:/app/config:ro
 
+
+  nsfw:
+    build:
+      context: nsfw_service
+      dockerfile: ./Dockerfile
+    container_name: nsfw_service
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - network
+
+      
   api_gateway:
     build:
       context: ./api_gateway

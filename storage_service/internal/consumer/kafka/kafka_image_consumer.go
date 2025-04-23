@@ -103,6 +103,7 @@ func (c *ImageConsumer) ConsumeImages(ctx context.Context) error {
 				Sexy:     content.NsfwScores.Sexy,
 			},
 		}
+    
 		err = c.usecase.ProcessImageMessage(ctx, imageMessage)
 		if err != nil {
 			c.log.Error("failed to process image",
