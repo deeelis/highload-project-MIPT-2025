@@ -24,10 +24,21 @@ func NewS3ImageStorage(cfg *config2.S3Config, log *slog.Logger) (*S3ImageStorage
 	}, nil
 }
 
-func (s *S3ImageStorage) StoreImage(ctx context.Context, data []byte) (string, error) {
-	key := fmt.Sprintf("images/%d/%s", time.Now().Unix(), uuid.New().String())
+//func (s *S3ImageStorage) StoreImage(ctx context.Context, data []byte) (string, error) {
+//	key := fmt.Sprintf("images/%d/%s", time.Now().Unix(), uuid.New().String())
+//
+//	err := s.client.UploadImage(ctx, s.client.bucket, key)
+//	if err != nil {
+//		return "", fmt.Errorf("failed to upload image to S3: %w", err)
+//	}
+//
+//	return key, nil
+//}
 
-	err := s.client.UploadImage(ctx, s.client.bucket, key)
+func (s *S3ImageStorage) StoreImage(ctx context.Context, data []byte) (string, error) {
+	key := fmt.Sprintf("images/%d/%s.jpg", time.Now().Unix(), uuid.New().String())
+
+	err := s.client.UploadImage(ctx, data, key)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload image to S3: %w", err)
 	}

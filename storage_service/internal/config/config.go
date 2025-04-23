@@ -30,6 +30,7 @@ type S3Config struct {
 	Bucket    string `yaml:"bucket"`
 	AccessKey string `yaml:"access_key"`
 	SecretKey string `yaml:"secret_key"`
+	URL       string `yaml:"url"`
 }
 
 type KafkaConfig struct {

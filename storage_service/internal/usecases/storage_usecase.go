@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -242,15 +243,38 @@ func (s *storageUsecase) ProcessTextMessage(ctx context.Context, msg *models.Tex
 }
 
 func (s *storageUsecase) ProcessImageMessage(ctx context.Context, msg *models.ImageMessage) error {
+	data, err := base64.StdEncoding.DecodeString(msg.Data)
+	if err != nil {
+		return fmt.Errorf("can't decode image")
+	}
+
+	key, err := s.imageStore.StoreImage(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	url, err := s.imageStore.GetImageURL(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	metadata := make(map[string]string)
+	metadata["drawings"] = fmt.Sprintf("%f", msg.NsfwScores.Drawings)
+	metadata["sexy"] = fmt.Sprintf("%f", msg.NsfwScores.Sexy)
+	metadata["porn"] = fmt.Sprintf("%f", msg.NsfwScores.Porn)
+	metadata["neutral"] = fmt.Sprintf("%f", msg.NsfwScores.Neutral)
+	metadata["hentai"] = fmt.Sprintf("%f", msg.NsfwScores.Hentai)
+
 	content := &models.ImageContent{
 		Content: models.Content{
 			ID:        msg.ID,
+			UserID:    msg.UserID,
 			Type:      models.ContentTypeImage,
 			Status:    models.StatusCompleted,
-			Metadata:  map[string]string{},
+			Metadata:  metadata,
 			UpdatedAt: time.Now(),
 		},
-		//S3Key: msg.S3Key,
+		S3Key: url,
 	}
 
 	if err := s.contentRepo.UpdateImageContent(ctx, content); err != nil {

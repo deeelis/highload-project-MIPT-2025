@@ -205,7 +205,7 @@ func (r *PostgresContentRepository) UpdateImageContent(ctx context.Context, cont
 	upsertImageQuery, imageArgs, err := psql.Insert("image_content").
 		Columns("content_id", "s3_key").
 		Values(content.ID, content.S3Key).
-		Suffix("ON CONFLICT (content_id) DO UPDATE SET s3_key = EXCLUDED.s3_key").
+		Suffix("ON CONFLICT (content_id) DO UPDATE SET s3_key = ?", content.S3Key).
 		ToSql()
 	if err != nil {
 		return fmt.Errorf("failed to build upsert image query: %w", err)

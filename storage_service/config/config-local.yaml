@@ -11,6 +11,7 @@ s3:
   bucket: "images"
   access_key: "minioadmin"
   secret_key: "minioadmin"
+  url: "http://localhost:9000"
 kafka:
   brokers:
     - "kafka:9092"

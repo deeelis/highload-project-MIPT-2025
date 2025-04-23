@@ -10,6 +10,7 @@ import (
 	"storage_service/internal/domain/models"
 	"storage_service/internal/domain/repositories"
 	usecases "storage_service/internal/usecases"
+	"strings"
 )
 
 type StorageController struct {
@@ -55,7 +56,7 @@ func (c *StorageController) GetContent(ctx context.Context, req *storage.Content
 
 	resp := &storage.ContentResponse{
 		ContentId: content.ID,
-		Type:      storage.ContentType(storage.ContentType_value[string(content.Type)]),
+		Type:      storage.ContentType(storage.ContentType_value[strings.ToUpper(string(content.Type))]),
 		Status:    processingStatus,
 	}
 
@@ -75,11 +76,13 @@ func (c *StorageController) GetContent(ctx context.Context, req *storage.Content
 	case models.ContentTypeImage:
 		imageContent, err := c.storageUsecase.GetImageContent(ctx, content.ID)
 		if err != nil {
+			c.log.Debug("hueviy image")
 			return nil, status.Errorf(codes.Internal, "failed to get image content: %v", err)
 		}
 		resp.Content = &storage.ContentResponse_Image{
 			Image: &storage.ImageContent{
 				AnalysisMetadata: imageContent.Metadata,
+				ImageUrl:         imageContent.S3Key,
 			},
 		}
 	}

@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"io"
 	"mime"
+	"net/http"
 	"os"
 	"path/filepath"
 	config2 "storage_service/internal/config"
@@ -21,6 +23,7 @@ type S3Client struct {
 	client   *s3.Client
 	bucket   string
 	endpoint string
+	url      string
 }
 
 func NewS3Client(cfgS3 *config2.S3Config) (*S3Client, error) {
@@ -63,26 +66,26 @@ func NewS3Client(cfgS3 *config2.S3Config) (*S3Client, error) {
 		client:   client,
 		bucket:   cfgS3.Bucket,
 		endpoint: cfgS3.Endpoint,
+		url:      cfgS3.URL,
 	}, nil
 }
 
-func (s *S3Client) UploadImage(ctx context.Context, filePath, objectKey string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	contentType := mime.TypeByExtension(filepath.Ext(filePath))
-	if contentType == "" {
-		contentType = "application/octet-stream"
+func (s *S3Client) UploadImage(ctx context.Context, data []byte, objectKey string) error {
+	contentType := http.DetectContentType(data)
+	if contentType == "application/octet-stream" {
+		ext := filepath.Ext(objectKey)
+		contentType = mime.TypeByExtension(ext)
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
 	}
 
-	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
+	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(objectKey),
-		Body:        file,
+		Body:        bytes.NewReader(data),
 		ContentType: aws.String(contentType),
+		ACL:         types.ObjectCannedACLPublicRead,
 	})
 	return err
 }
@@ -137,7 +140,7 @@ func (s *S3Client) ListImages(ctx context.Context, prefix string) ([]string, err
 
 func (s *S3Client) GetImageURL(objectKey string) string {
 	return strings.Join([]string{
-		s.endpoint,
+		s.url,
 		s.bucket,
 		objectKey,
 	}, "/")

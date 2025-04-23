@@ -103,7 +103,7 @@ func (c *ImageConsumer) ConsumeImages(ctx context.Context) error {
 				Sexy:     content.NsfwScores.Sexy,
 			},
 		}
-    
+
 		err = c.usecase.ProcessImageMessage(ctx, imageMessage)
 		if err != nil {
 			c.log.Error("failed to process image",
@@ -114,7 +114,7 @@ func (c *ImageConsumer) ConsumeImages(ctx context.Context) error {
 		}
 
 		log.Info("content successfully saved",
-			slog.String("topic", content.Data),
+			//slog.String("topic", content.Data),
 			slog.String("content_id", content.ID))
 	}
 }
