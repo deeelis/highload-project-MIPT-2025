@@ -139,7 +139,7 @@ services:
       - network
 
   minio:
-    image: bitnami/minio:latest
+    image: minio/minio:latest
     container_name: minio
     command: server /data --console-address ":9001"
     environment:
@@ -151,7 +151,7 @@ services:
       - "9001:9001"
     volumes:
       - ./miniodata:/data
-    user: "1001"
+#    user: "1001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s

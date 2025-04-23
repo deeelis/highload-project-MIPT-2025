@@ -50,45 +50,60 @@ func NewStorageUsecase(ctx context.Context, cfg *config.Config, log *slog.Logger
 
 func (s *storageUsecase) GetTextContent(ctx context.Context, id string) (*models.TextContent, error) {
 	var content *models.Content
-	//if cached, err := s.cacheRepo.Get(ctx, id); err == nil {
-	//	c, ok := cached.(*models.Content)
-	//	if !ok {
-	//		content, err = s.contentRepo.GetContent(ctx, id)
-	//		if err != nil {
-	//			return nil, err
-	//		}
-	//	} else {
-	//		content = c
-	//	}
-	//} else {
-	//	content, err = s.contentRepo.GetContent(ctx, id)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
-
-	content, err := s.contentRepo.GetContent(ctx, id)
-	if err != nil {
-		return nil, err
+	if cached, err := s.cacheRepo.Get(ctx, id); err == nil {
+		c, ok := cached.(*models.Content)
+		if !ok {
+			content, err = s.contentRepo.GetContent(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			content = c
+		}
+	} else {
+		content, err = s.contentRepo.GetContent(ctx, id)
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	//content, err := s.contentRepo.GetContent(ctx, id)
+	//if err != nil {
+	//	return nil, err
+	//}
 	s.log.Debug(content.ID)
 	s.log.Debug(string(content.Status))
 
+	var err error
+	var textContent *models.TextContent
 	if content.Status == models.StatusCompleted {
-		textContent, err := s.contentRepo.GetTextContent(ctx, content.ID)
+		textContent, err = s.contentRepo.GetTextContent(ctx, content.ID)
 		if err != nil {
 			return nil, err
 		}
 		s.log.Debug("get text")
 		s.log.Debug(string(textContent.Status))
 		return textContent, nil
+	} else {
+		textContent = &models.TextContent{
+			Content: models.Content{
+				ID:        content.ID,
+				UserID:    content.UserID,
+				Type:      content.Type,
+				Status:    content.Status,
+				CreatedAt: content.CreatedAt,
+				UpdatedAt: content.UpdatedAt,
+				Metadata:  make(map[string]string),
+			},
+			OriginalText: "",
+		}
 	}
 
-	//if err := s.cacheRepo.Set(ctx, id, content, 300); err != nil {
-	//	log.Println(err.Error())
-	//}
+	if err := s.cacheRepo.Set(ctx, id, content, 300); err != nil {
+		log.Println(err.Error())
+	}
 
-	return &models.TextContent{Content: *content}, nil
+	return textContent, nil
 }
 
 func (s *storageUsecase) GetImageContent(ctx context.Context, id string) (*models.ImageContent, error) {
@@ -110,19 +125,34 @@ func (s *storageUsecase) GetImageContent(ctx context.Context, id string) (*model
 		}
 	}
 
+	var err error
+	var imageContent *models.ImageContent
 	if content.Status == models.StatusCompleted {
-		imageContent, err := s.contentRepo.GetImageContent(ctx, content.ID)
+		imageContent, err = s.contentRepo.GetImageContent(ctx, content.ID)
 		if err != nil {
 			return nil, err
 		}
 		return imageContent, nil
+	} else {
+		imageContent = &models.ImageContent{
+			Content: models.Content{
+				ID:        content.ID,
+				UserID:    content.UserID,
+				Type:      content.Type,
+				Status:    content.Status,
+				CreatedAt: content.CreatedAt,
+				UpdatedAt: content.UpdatedAt,
+				Metadata:  make(map[string]string),
+			},
+			S3Key: "",
+		}
 	}
 
 	if err := s.cacheRepo.Set(ctx, id, content, 300); err != nil {
 		log.Println(err.Error())
 	}
 
-	return &models.ImageContent{Content: *content}, nil
+	return imageContent, nil
 }
 
 func (s *storageUsecase) GetContent(ctx context.Context, id string) (*models.Content, error) {
@@ -200,10 +230,6 @@ func (s *storageUsecase) ProcessTextMessage(ctx context.Context, msg *models.Tex
 		Content:      content,
 		OriginalText: msg.Content,
 	}
-
-	//if err := s.contentRepo.CreateContent(ctx, &content); err != nil {
-	//	return fmt.Errorf("failed to create content: %w", err)
-	//}
 
 	if err := s.contentRepo.UpdateTextContent(ctx, textContent); err != nil {
 		return fmt.Errorf("failed to update text content: %w", err)

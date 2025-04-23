@@ -294,9 +294,11 @@ func (r *PostgresContentRepository) GetTextContent(ctx context.Context, id strin
 }
 
 func (r *PostgresContentRepository) CreateContentRecord(ctx context.Context, content *models.Content) error {
+	metadata, _ := json.Marshal(make(map[string]string))
+
 	query, args, err := psql.Insert("content").
-		Columns("id", "type", "status", "created_at", "updated_at").
-		Values(content.ID, content.Type, content.Status, content.CreatedAt, content.UpdatedAt).
+		Columns("id", "type", "status", "created_at", "updated_at", "metadata").
+		Values(content.ID, content.Type, content.Status, content.CreatedAt, content.UpdatedAt, metadata).
 		Suffix("ON CONFLICT (id) DO NOTHING").
 		ToSql()
 	if err != nil {
