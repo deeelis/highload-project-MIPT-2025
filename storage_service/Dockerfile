@@ -19,4 +19,4 @@ COPY --from=builder /app/config /app/config
 
 EXPOSE 50052
 
-CMD ["/app/storage-service"]
+CMD ["/app/storage_service"]
