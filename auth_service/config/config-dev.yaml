@@ -1,0 +1,9 @@
+env: dev
+grpc:
+  port: 50051
+  timeout: 5s
+database:
+  dsn: postgres://auth_user:auth_password@postgres:5432/auth_db?sslmode=disable
+token:
+  token_ttl: 15m
+  refresh_token_ttl: 168h

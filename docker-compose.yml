@@ -1,0 +1,119 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+    ports:
+      - 2181:2181
+    networks:
+      - network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    container_name: kafka
+    hostname: kafka
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 10000
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - 9092:9092
+    healthcheck:
+      test: |
+        bash -c "
+        kafka-broker-api-versions --bootstrap-server localhost:9092 && 
+        kafka-topics --bootstrap-server localhost:9092 --list
+        "
+      interval: 5s
+      timeout: 10s
+      retries: 20
+    networks:
+      - network
+
+  api_gateway:
+    build:
+      context: ./api_gateway
+      dockerfile: Dockerfile
+    container_name: api_gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth_service:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - network
+    volumes:
+      - ./api_gateway/config:/app/config:ro
+    environment:
+      CONFIG_PATH: /app/config/config-local.yaml
+
+  auth_service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    container_name: auth_service
+    ports:
+      - "50051:50051"
+    environment:
+      DB_URL: postgres://admin:password@auth_db:5432/users?sslmode=disable
+      SECRET_KEY: your_very_secure_secret_key_here
+      CONFIG_PATH: /app/config/config-local.yaml
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      auth_db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./auth_service/config:/app/config
+    networks:
+      - network
+
+  auth_db:
+    image: postgres:15-alpine
+    container_name: auth_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: users
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - network
+
+  migrator:
+    build:
+      context: auth_service
+      dockerfile: cmd/migrator/Dockerfile
+    environment:
+      DB_URL: "postgres://admin:password@auth_db:5432/users?sslmode=disable"
+      SECRET_KEY: your_very_secure_secret_key_here
+      CONFIG_PATH: /app/config/config-local.yaml
+    depends_on:
+      auth_db:
+        condition: service_healthy
+    volumes:
+      - ./auth_service/migrations:/app/migrations
+    networks:
+      - network
+
+volumes:
+  postgres_data:
+
+networks:
+  network:
+    driver: bridge
