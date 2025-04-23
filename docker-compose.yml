@@ -16,17 +16,9 @@ services:
     hostname: kafka
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      
-      # Настройки слушателей
-      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9093,EXTERNAL://localhost:9092 # PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      
-      KAFKA_MESSAGE_MAX_BYTES: 2000000
-      KAFKA_REPLICA_FETCH_MAX_BYTES: 2000000
-      KAFKA_MAX_REQUEST_SIZE: 2000000
-      
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092, PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 10000
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -40,9 +32,10 @@ services:
         kafka-broker-api-versions --bootstrap-server localhost:9092 && 
         kafka-topics --bootstrap-server localhost:9092 --list
         "
-      interval: 5s
-      timeout: 10s
+      interval: 30s
+      timeout: 20s
       retries: 20
+      start_period: 40s
     networks:
       - network
 
@@ -116,7 +109,7 @@ services:
     depends_on:
       - kafka
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - network
 
